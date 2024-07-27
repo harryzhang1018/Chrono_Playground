@@ -148,6 +148,8 @@ while vis.Run() :
     # get trailer and tractor position
     tractor_pos = car.GetTractorChassisBody().GetPos()
     trailer_pos = car.GetTrailer().GetChassis().GetBody().GetPos()
+    tractor_heading = car.GetTractorChassisBody().GetRot().GetCardanAnglesZYX().z
+    trailer_heading = car.GetTrailer().GetChassis().GetBody().GetRot().GetCardanAnglesZYX().z
     # Render scene and output POV-Ray data
     if (step_number % render_steps == 0) :
         vis.BeginScene()

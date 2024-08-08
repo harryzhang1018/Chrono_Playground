@@ -22,9 +22,9 @@ chrono.SetChronoDataPath(chrono.GetChronoDataPath())
 veh.SetDataPath(chrono.GetChronoDataPath() + 'vehicle/')
 
 # Initial vehicle location and orientation
-initLoc = chrono.ChVector3d(7, -60, 0.5)
+initLoc = chrono.ChVector3d(7, -200, 0.5)
 initRot = chrono.QuatFromAngleZ(1.57)
-initLoc_sedan = chrono.ChVector3d(3, -65, 0.5)
+initLoc_sedan = chrono.ChVector3d(3, -200, 0.5)
 initRot_sedan = chrono.QuatFromAngleZ(1.57)
 # initRot = chrono.ChQuaterniond(1, 0, 0, 0)
 
@@ -55,7 +55,7 @@ step_size = 1e-3
 tire_step_size = step_size
 
 # Time interval between two render frames
-render_step_size = 1.0 / 50  # FPS = 50
+render_step_size = 1.0 / 25  # FPS = 50
 
 # =============================================================================
 
@@ -100,9 +100,9 @@ patch_mat.SetRestitution(0.01)
 terrain = veh.RigidTerrain(truck.GetSystem())
 patch = terrain.AddPatch(patch_mat, 
     chrono.ChCoordsysd(chrono.ChVector3d(0, 0, 0), chrono.QUNIT),
-    veh.GetDataFile('terrain/meshes/Highway_col.obj'),
-    True, 0.01, False)
-vis_mesh = chrono.ChTriangleMeshConnected().CreateFromWavefrontFile(veh.GetDataFile("terrain/meshes/Highway_vis.obj"), True, True)
+    veh.GetDataFile('terrain/meshes/highway_long.obj'),
+    False, 0.01, False)
+vis_mesh = chrono.ChTriangleMeshConnected().CreateFromWavefrontFile(veh.GetDataFile("terrain/meshes/highway_long.obj"), True, True)
 tri_mesh_shape = chrono.ChVisualShapeTriangleMesh()
 tri_mesh_shape.SetMesh(vis_mesh)
 tri_mesh_shape.SetMutable(False)
@@ -121,7 +121,14 @@ vis.SetWindowSize(1280, 1024)
 vis.SetChaseCamera(trackPoint, 25.0, 1.5)
 vis.Initialize()
 vis.AddLogo(chrono.GetChronoDataFile('logo_pychrono_alpha.png'))
-vis.AddLightDirectional()
+vis.AddLightDirectional(
+    60,
+    60,
+    chrono.ChColor(0.5,0.5,0.5),
+    chrono.ChColor(0.6,0.6,0.6),
+    chrono.ChColor(0.5,0.5,0.5),
+)
+# vis.AddTypicalLights()
 vis.AddSkyBox()
 vis.AttachVehicle(truck.GetTractor())
 

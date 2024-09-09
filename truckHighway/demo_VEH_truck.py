@@ -100,9 +100,9 @@ patch_mat.SetRestitution(0.01)
 terrain = veh.RigidTerrain(truck.GetSystem())
 patch = terrain.AddPatch(patch_mat, 
     chrono.ChCoordsysd(chrono.ChVector3d(0, 0, 0), chrono.QUNIT),
-    veh.GetDataFile('terrain/meshes/highway_long.obj'),
+    '../data/highway_long.obj',
     False, 0.01, False)
-vis_mesh = chrono.ChTriangleMeshConnected().CreateFromWavefrontFile(veh.GetDataFile("terrain/meshes/highway_long.obj"), True, True)
+vis_mesh = chrono.ChTriangleMeshConnected().CreateFromWavefrontFile('../data/highway_long.obj', True, True)
 tri_mesh_shape = chrono.ChVisualShapeTriangleMesh()
 tri_mesh_shape.SetMesh(vis_mesh)
 tri_mesh_shape.SetMutable(False)

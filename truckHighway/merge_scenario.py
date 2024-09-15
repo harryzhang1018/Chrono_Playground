@@ -79,13 +79,38 @@ def parallel_scenario(trajectory, truck_x, truck_y, from_left_right='left',vel=3
     traj_x,traj_y = splev(t,tck)
     merging_traj = np.array([traj_x,traj_y]).T
     return merging_traj
+
+def serial_scenario(trajectory, truck_x, truck_y,vel=31,run_time=3.8,freq=20):
+    x_ref = trajectory[:, 0]
+    y_ref = trajectory[:, 1]
+    heading_ref = trajectory[:, 2]
+    deviate_theta = 0.0
+    closest_index = find_closest_point(x_ref, y_ref, truck_x, truck_y)
+    closest_point_x = x_ref[closest_index]
+    closest_point_y = y_ref[closest_index]
+    closest_point_theta = heading_ref[closest_index]
+    deviation_distance = 10
+    start_x = closest_point_x + deviation_distance * np.cos(closest_point_theta+deviate_theta)
+    start_y = closest_point_y + deviation_distance * np.sin(closest_point_theta+deviate_theta)
+    start_index = find_closest_point(x_ref,y_ref,start_x,start_y)
+    disp_to_x = start_x + vel*run_time*np.cos(closest_point_theta)
+    disp_to_y = start_y + vel*run_time*np.sin(closest_point_theta)
+    end_index = find_closest_point(x_ref,y_ref,disp_to_x,disp_to_y)
+    
+    num_points = int(run_time*freq)
+    # I want to get num_points from start_index to end_index
+    index_list = np.linspace(start_index,end_index,num_points)
+    index_list = index_list.astype(int)
+    merging_traj = trajectory[index_list]
+    return merging_traj
+
 # trajectory = np.loadtxt('trajectory.csv', delimiter=',')
-# for i in range(10):
+# for i in range(1):
 #     # given location of the truck
 #     random_index = np.random.randint(0, len(trajectory))
 #     truck_x, truck_y = trajectory[random_index, 0], trajectory[random_index, 1]
 #     #keypoints, traj_x, traj_y = merging_scenario(trajectory, truck_x, truck_y, from_left_right='right')
-#     parallel_traj = parallel_scenario(trajectory, truck_x, truck_y, from_left_right='left')
+#     parallel_traj = serial_scenario(trajectory, truck_x, truck_y)
 #     # Plot the trajectory
 #     plt.figure(figsize=(10, 6))
 #     plt.plot(trajectory[:,0], trajectory[:,1], label='Reference Trajectory')

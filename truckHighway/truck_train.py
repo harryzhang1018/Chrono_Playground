@@ -17,7 +17,8 @@ import math
 import numpy as np
 import time
 from controller import error_state
-from merge_scenario import merging_scenario,parallel_scenario
+from merge_scenario import merging_scenario,parallel_scenario,serial_scenario
+import csv
 """
 !!!! Set this path before running the demo!
 """
@@ -104,7 +105,7 @@ road_vis_mat = chrono.ChVisualMaterial()
 road_vis_mat.SetDiffuseColor(chrono.ChColor(1.0, 1.0, 1.0))
 # Create ChBodyEasyBox objects at specified positions
 # reference centerline of the truck
-reference_trajectory = np.loadtxt('../trajectory.csv', delimiter=',')
+reference_trajectory = np.loadtxt('./data/reference_traj/trajectory.csv', delimiter=',')
 # only show sparse points not all points
 visual_reference_trajectory = reference_trajectory[::50]
 for pos in visual_reference_trajectory:
@@ -143,24 +144,51 @@ for pos in visual_reference_trajectory:
     
     #truck.GetSystem().Add(box_body)
 
-# initialize the ball to represent the truck
-ball_merge = chrono.ChBodyEasySphere(0.4, 1000, True, False)
+# initialize the ball to represent the ball from right hand merging
+ball_merge_right = chrono.ChBodyEasySphere(0.4, 1000, True, False)
 vis_merge = chrono.ChVisualMaterial()
 vis_merge.SetDiffuseColor(chrono.ChColor(1,0,0))
-ball_merge_shape = ball_merge.GetVisualModel().GetShape(0)
-ball_merge_shape.AddMaterial(vis_merge)
-ball_merge.SetPos(chrono.ChVector3d(0,0,0))
-ball_merge.SetFixed(False)
-truck.GetSystem().Add(ball_merge)
-
-ball_paral = chrono.ChBodyEasySphere(0.4, 1000, True, False)
+ball_merge_right_shape = ball_merge_right.GetVisualModel().GetShape(0)
+ball_merge_right_shape.AddMaterial(vis_merge)
+ball_merge_right.SetPos(chrono.ChVector3d(0,0,0))
+ball_merge_right.SetFixed(False)
+truck.GetSystem().Add(ball_merge_right)
+# initialize the ball to represent the ball from left hand merging
+ball_merge_left = chrono.ChBodyEasySphere(0.4, 1000, True, False)
+vis_merge = chrono.ChVisualMaterial()
+vis_merge.SetDiffuseColor(chrono.ChColor(1,0,0))
+ball_merge_left_shape = ball_merge_left.GetVisualModel().GetShape(0)
+ball_merge_left_shape.AddMaterial(vis_merge)
+ball_merge_left.SetPos(chrono.ChVector3d(0,0,0))
+ball_merge_left.SetFixed(False)
+truck.GetSystem().Add(ball_merge_left)
+# initialize the ball to represent the ball from right hand side parallel case
+ball_paral_right = chrono.ChBodyEasySphere(0.4, 1000, True, False)
 vis_paral = chrono.ChVisualMaterial()
 vis_paral.SetDiffuseColor(chrono.ChColor(0,0,1))
-ball_paral_shape = ball_paral.GetVisualModel().GetShape(0)
-ball_paral_shape.AddMaterial(vis_paral)
-ball_paral.SetPos(chrono.ChVector3d(0,0,0))
-ball_paral.SetFixed(False)
-truck.GetSystem().Add(ball_paral)
+ball_paral_right_shape = ball_paral_right.GetVisualModel().GetShape(0)
+ball_paral_right_shape.AddMaterial(vis_paral)
+ball_paral_right.SetPos(chrono.ChVector3d(0,0,0))
+ball_paral_right.SetFixed(False)
+truck.GetSystem().Add(ball_paral_right)
+# initialize the ball to represent the ball from left hand side parallel case
+ball_paral_left = chrono.ChBodyEasySphere(0.4, 1000, True, False)
+vis_paral = chrono.ChVisualMaterial()
+vis_paral.SetDiffuseColor(chrono.ChColor(0,0,1))
+ball_paral_left_shape = ball_paral_left.GetVisualModel().GetShape(0)
+ball_paral_left_shape.AddMaterial(vis_paral)
+ball_paral_left.SetPos(chrono.ChVector3d(0,0,0))
+ball_paral_left.SetFixed(False)
+truck.GetSystem().Add(ball_paral_left)
+# initialize the ball to represent the ball from serial case
+ball_serial = chrono.ChBodyEasySphere(0.4, 1000, True, False)
+vis_serial = chrono.ChVisualMaterial()
+vis_serial.SetDiffuseColor(chrono.ChColor(0,1,0))
+ball_serial_shape = ball_serial.GetVisualModel().GetShape(0)
+ball_serial_shape.AddMaterial(vis_serial)
+ball_serial.SetPos(chrono.ChVector3d(0,0,0))
+ball_serial.SetFixed(False)
+truck.GetSystem().Add(ball_serial)
 # -------------------------------------
 # Create the vehicle Irrlicht interface
 # Create the driver system
@@ -212,12 +240,35 @@ step_number = 0
 control_number = 0
 render_frame = 0
 is_merging = False
+is_merging_left = False
 merge_trajectory = []
+merge_trajectory_left = []
 merge_traj_ind = 0
+merge_traj_ind_left = 0
 
 is_parallel = False
+is_parallel_left = False
 parallel_trajectory = []
+parallel_trajectory_left = []
 parallel_traj_ind = 0
+parallel_traj_ind_left = 0
+
+is_serial = False
+serial_trajectory = []
+serial_traj_ind = 0
+
+# Constants
+merge_start_time = 5.0
+min_pause = 1.0  # Minimum pause between trajectories
+max_pause = 2.0  # Maximum pause between trajectories
+
+# Variables to track last trajectory generation time
+last_trajectory_time = 0
+next_trajectory_time = merge_start_time
+
+# Variables to track the last side used for each scenario type
+last_merge_side = None
+last_parallel_side = None
 
 while vis.Run() :
     time = truck.GetSystem().GetChTime()
@@ -228,71 +279,161 @@ while vis.Run() :
     trailer_pos = truck.GetTrailer().GetChassis().GetBody().GetPos()
     tractor_heading = truck.GetTractorChassisBody().GetRot().GetCardanAnglesZYX().z
     trailer_heading = truck.GetTrailer().GetChassis().GetBody().GetRot().GetCardanAnglesZYX().z
-    if (not is_merging) and time > 10.0:
-        # merging case start after 10 seconds at certain probability
-        # generate random number between 0 and 1
-        random_number = np.random.rand()
-        print(random_number)
-        if random_number < 0.05:
-            print("merging")
-            truck_x = tractor_pos.x
-            truck_y = tractor_pos.y
+
+    if time > next_trajectory_time:
+        tractor_pos = truck.GetTractorChassisBody().GetPos()
+        trailer_pos = truck.GetTrailer().GetChassis().GetBody().GetPos()
+        
+        # Randomly choose between tractor and trailer position
+        if np.random.rand() < 0.5:
+            truck_x, truck_y = tractor_pos.x, tractor_pos.y
+            position_used = "tractor"
+        else:
+            truck_x, truck_y = trailer_pos.x, trailer_pos.y
+            position_used = "trailer"
+
+        # Randomly choose between merge, parallel, and serial scenarios
+        scenario_choice = np.random.rand()
+        
+        if scenario_choice < 0.4:  # 40% chance for merge
+            # Merge scenario
+            from_side = 'left' if last_merge_side != 'left' else 'right'
+            vel = np.random.uniform(26, 30)
+            merge_time = np.random.uniform(2.5, 4.5)
             
-            # Randomize parameters
-            from_left_right = np.random.choice(['left', 'right'])
-            vel = np.random.uniform(26, 40)
-            merge_time = np.random.uniform(2.5, 7.5)
+            new_trajectory = merging_scenario(reference_trajectory, truck_x, truck_y, 
+                                              from_left_right=from_side,
+                                              vel=vel,
+                                              merge_time=merge_time,
+                                              freq=25)
+            print(f"Merging from {from_side}, velocity: {vel:.2f}, merge time: {merge_time:.2f}, using {position_used} position")
+            print(new_trajectory.shape)
             
-            merge_trajectory = merging_scenario(reference_trajectory, truck_x, truck_y, 
-                                                from_left_right=from_left_right,
-                                                vel=vel,
-                                                merge_time=merge_time,
-                                                freq=25)
-            print(f"Merging from {from_left_right}, velocity: {vel:.2f}, merge time: {merge_time:.2f}")
-            print(merge_trajectory.shape)
-            is_merging = True
-    # add parallel case
-    if (not is_parallel):
-        random_number = np.random.rand()
-        if random_number < 0.01:
-            print("parallel")
-            truck_x = tractor_pos.x
-            truck_y = tractor_pos.y
-            left_or_right = np.random.choice(['left', 'right'])
-            driver_vel = np.random.uniform(26, 40)
-            run_time = np.random.uniform(3.5, 8.5)
-            parallel_trajectory = parallel_scenario(reference_trajectory, truck_x, truck_y, from_left_right=left_or_right,vel=driver_vel,run_time=run_time,freq=25)
-            print(f"Parallel from {left_or_right}, velocity: {driver_vel:.2f}, merge time: {run_time:.2f}")
-            print(parallel_trajectory.shape)
-            is_parallel = True
+            if from_side == 'left':
+                merge_trajectory_left = new_trajectory
+                is_merging_left = True
+                merge_traj_ind_left = 0
+            else:
+                merge_trajectory = new_trajectory
+                is_merging = True
+                merge_traj_ind = 0
             
+            last_merge_side = from_side
+        elif scenario_choice < 0.8:  # 40% chance for parallel
+            # Parallel scenario
+            from_side = 'left' if last_parallel_side != 'left' else 'right'
+            driver_vel = np.random.uniform(30, 40)
+            run_time = np.random.uniform(3.5, 5.5)
+            
+            new_trajectory = parallel_scenario(reference_trajectory, truck_x, truck_y, 
+                                               from_left_right=from_side,
+                                               vel=driver_vel,
+                                               run_time=run_time,
+                                               freq=25)
+            print(f"Parallel from {from_side}, velocity: {driver_vel:.2f}, run time: {run_time:.2f}, using {position_used} position")
+            print(new_trajectory.shape)
+            
+            if from_side == 'left':
+                parallel_trajectory_left = new_trajectory
+                is_parallel_left = True
+                parallel_traj_ind_left = 0
+            else:
+                parallel_trajectory = new_trajectory
+                is_parallel = True
+                parallel_traj_ind = 0
+            
+            last_parallel_side = from_side
+        else:  # 20% chance for serial, but only if no merging is active
+            if not is_merging and not is_merging_left:
+                # Serial scenario
+                driver_vel = np.random.uniform(26, 40)
+                run_time = np.random.uniform(3.5, 5.5)
+                
+                serial_trajectory = serial_scenario(reference_trajectory, truck_x, truck_y, 
+                                                    vel=driver_vel,
+                                                    run_time=run_time,
+                                                    freq=25)
+                print(f"Serial scenario, velocity: {driver_vel:.2f}, run time: {run_time:.2f}, using {position_used} position")
+                print(serial_trajectory.shape)
+                
+                is_serial = True
+                serial_traj_ind = 0
+            else:
+                print("Serial scenario skipped due to active merging")
+
+        # Set the next trajectory generation time
+        last_trajectory_time = time
+        next_trajectory_time = time + np.random.uniform(min_pause, max_pause)
+
     if (step_number % control_steps == 0):
         # for truck controller
         error = error_state(veh_state=[tractor_pos.x,tractor_pos.y,tractor_heading],ref_traj=reference_trajectory,lookahead=3.0)
-        steering = sum([x * y for x, y in zip(error, [0.02176878 , 0.72672704 , 0.78409284 ,-0.0105355 ])]) 
+        steering = sum([x * y for x, y in zip(error, [0.02176878 , 0.72672704 , 0.78409284 ,-0.0105355 ])]) # @hang here is the place to add controller
         driver.SetSteering(steering)
         driver.SetThrottle(1.0)
     
     # Render scene and output POV-Ray data
     if (step_number % render_steps == 0) :
         vis.BeginScene()
-        if merge_traj_ind < len(merge_trajectory) and is_merging:
-            #print('modify the position of the ball')
-            ball_merge.SetPos(chrono.ChVector3d(merge_trajectory[merge_traj_ind][0],merge_trajectory[merge_traj_ind][1],0.5))
+        
+        # Right merge
+        if is_merging and merge_traj_ind < len(merge_trajectory):
+            ball_merge_right.SetPos(chrono.ChVector3d(merge_trajectory[merge_traj_ind][0], merge_trajectory[merge_traj_ind][1], 0.5))
             merge_traj_ind += 1
-        else:
+        elif is_merging:
             is_merging = False
             merge_traj_ind = 0
-        if parallel_traj_ind < len(parallel_trajectory) and is_parallel:
-            ball_paral.SetPos(chrono.ChVector3d(parallel_trajectory[parallel_traj_ind][0],parallel_trajectory[parallel_traj_ind][1],0.5))
+            
+        vir_veh_1 = [ball_merge_right.GetPos().x, ball_merge_right.GetPos().y] if is_merging else [0,0]
+
+        # Left merge
+        if is_merging_left and merge_traj_ind_left < len(merge_trajectory_left):
+            ball_merge_left.SetPos(chrono.ChVector3d(merge_trajectory_left[merge_traj_ind_left][0], merge_trajectory_left[merge_traj_ind_left][1], 0.5))
+            merge_traj_ind_left += 1
+        elif is_merging_left:
+            is_merging_left = False
+            merge_traj_ind_left = 0
+            
+        vir_veh_2 = [ball_merge_left.GetPos().x, ball_merge_left.GetPos().y] if is_merging_left else [0,0]
+        # Right parallel
+        if is_parallel and parallel_traj_ind < len(parallel_trajectory):
+            ball_paral_right.SetPos(chrono.ChVector3d(parallel_trajectory[parallel_traj_ind][0], parallel_trajectory[parallel_traj_ind][1], 0.5))
             parallel_traj_ind += 1
-        else:
+        elif is_parallel:
             is_parallel = False
             parallel_traj_ind = 0
+        
+        vir_veh_3 = [ball_paral_right.GetPos().x, ball_paral_right.GetPos().y] if is_parallel else [0,0]
+
+        # Left parallel
+        if is_parallel_left and parallel_traj_ind_left < len(parallel_trajectory_left):
+            ball_paral_left.SetPos(chrono.ChVector3d(parallel_trajectory_left[parallel_traj_ind_left][0], parallel_trajectory_left[parallel_traj_ind_left][1], 0.5))
+            parallel_traj_ind_left += 1
+        elif is_parallel_left:
+            is_parallel_left = False
+            parallel_traj_ind_left = 0
+
+        vir_veh_4 = [ball_paral_left.GetPos().x, ball_paral_left.GetPos().y] if is_parallel_left else [0,0]
+        # Serial
+        if is_serial and serial_traj_ind < len(serial_trajectory):
+            ball_serial.SetPos(chrono.ChVector3d(serial_trajectory[serial_traj_ind][0], serial_trajectory[serial_traj_ind][1], 0.5))
+            serial_traj_ind += 1
+        elif is_serial:
+            is_serial = False
+            serial_traj_ind = 0
+            
+        vir_veh_5 = [ball_serial.GetPos().x, ball_serial.GetPos().y] if is_serial else [0,0]
+        # write virtual vehicles position and truck state into csv file
+        with open('./data/training_data/train_data.csv', 'a') as f:
+            writer = csv.writer(f)
+            writer.writerow([time, tractor_pos.x, tractor_pos.y, tractor_heading,tractor_heading-trailer_heading, vir_veh_1[0], vir_veh_1[1], vir_veh_2[0], vir_veh_2[1], vir_veh_3[0], vir_veh_3[1], vir_veh_4[0], vir_veh_4[1], vir_veh_5[0], vir_veh_5[1]])
+        
+        
+
         vis.Render()
         vis.EndScene()
-        filename = './prototype/img_' + str(render_frame) +'.jpg' 
-        vis.WriteImageToFile(filename)
+        # filename = './prototype/img_' + str(render_frame) +'.jpg' 
+        # vis.WriteImageToFile(filename)
         render_frame += 1
     # Get driver inputs
     driver_inputs = driver.GetInputs()

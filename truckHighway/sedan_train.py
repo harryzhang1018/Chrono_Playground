@@ -267,6 +267,11 @@ next_trajectory_time = merge_start_time
 last_merge_side = None
 last_parallel_side = None
 
+ind_s1,ind_s2,ind_s3,ind_s4,ind_s5 = 0,0,0,0,0
+log_s1,log_s2,log_s3,log_s4,log_s5 = [],[],[],[],[]
+train_data = {}
+center_veh_log = []
+
 while vis.Run() :
     time = sedan.GetSystem().GetChTime()
     # control sedan vehicle 
@@ -368,7 +373,7 @@ while vis.Run() :
         # for sedan controller now it's a simple PID controller
         error = error_state(veh_state=[veh_x,veh_y,veh_heading],ref_traj=reference_trajectory,lookahead=3.0)
         steering = sum([x * y for x, y in zip(error, [0.02176878 , 0.72672704 , 0.78409284 ,-0.0105355 ])]) # @hang here is the place to add controller
-        ref_vel = 30
+        ref_vel = 20
         current_vel = sedan.GetVehicle().GetSpeed()
         vel_error = ref_vel - current_vel
         throttle = 0.5 * vel_error + 0.5
@@ -378,59 +383,92 @@ while vis.Run() :
     # Render scene and output POV-Ray data
     if (step_number % render_steps == 0) :
         vis.BeginScene()
-        # print(tractor_pos)
-        # print(tractor_heading)
-        # Right merge
+        
+        center_veh_log.append([time,veh_x,veh_y,veh_heading])
+        train_data['center_vehicle'] = center_veh_log
+
         if is_merging and merge_traj_ind < len(merge_trajectory):
+            # s1file = './data/training_data/s1_'+str(ind_s1)+'.csv'
+            # with open(s1file, 'a') as f:
+            #     writer = csv.writer(f)
+            #     writer.writerow([time,merge_trajectory[merge_traj_ind][0], merge_trajectory[merge_traj_ind][1]])
+            log_s1.append([time,merge_trajectory[merge_traj_ind][0], merge_trajectory[merge_traj_ind][1]])
+            
             ball_merge_right.SetPos(chrono.ChVector3d(merge_trajectory[merge_traj_ind][0], merge_trajectory[merge_traj_ind][1], 0.5))
             merge_traj_ind += 1
+
         elif is_merging:
             is_merging = False
             merge_traj_ind = 0
+            train_data['s1_'+str(ind_s1)] = log_s1
+            log_s1 = []
+            ind_s1 += 1
+            
+            
             
         vir_veh_1 = [ball_merge_right.GetPos().x, ball_merge_right.GetPos().y] if is_merging else [0,0]
 
         # Left merge
         if is_merging_left and merge_traj_ind_left < len(merge_trajectory_left):
+            log_s2.append([time,merge_trajectory_left[merge_traj_ind_left][0], merge_trajectory_left[merge_traj_ind_left][1]])
+
             ball_merge_left.SetPos(chrono.ChVector3d(merge_trajectory_left[merge_traj_ind_left][0], merge_trajectory_left[merge_traj_ind_left][1], 0.5))
             merge_traj_ind_left += 1
         elif is_merging_left:
             is_merging_left = False
             merge_traj_ind_left = 0
+            train_data['s2_'+str(ind_s2)] = log_s2
+            log_s2 = []
+            ind_s2 += 1
             
         vir_veh_2 = [ball_merge_left.GetPos().x, ball_merge_left.GetPos().y] if is_merging_left else [0,0]
         # Right parallel
         if is_parallel and parallel_traj_ind < len(parallel_trajectory):
+            log_s3.append([time,parallel_trajectory[parallel_traj_ind][0], parallel_trajectory[parallel_traj_ind][1]])
+
             ball_paral_right.SetPos(chrono.ChVector3d(parallel_trajectory[parallel_traj_ind][0], parallel_trajectory[parallel_traj_ind][1], 0.5))
             parallel_traj_ind += 1
         elif is_parallel:
             is_parallel = False
             parallel_traj_ind = 0
+            train_data['s3_'+str(ind_s3)] = log_s3
+            log_s3 = []
+            ind_s3 += 1
         
         vir_veh_3 = [ball_paral_right.GetPos().x, ball_paral_right.GetPos().y] if is_parallel else [0,0]
 
         # Left parallel
-        if is_parallel_left and parallel_traj_ind_left < len(parallel_trajectory_left):
+        if is_parallel_left and parallel_traj_ind_left < len(parallel_trajectory_left): 
+            log_s4.append([time,parallel_trajectory_left[parallel_traj_ind_left][0], parallel_trajectory_left[parallel_traj_ind_left][1]])
+
             ball_paral_left.SetPos(chrono.ChVector3d(parallel_trajectory_left[parallel_traj_ind_left][0], parallel_trajectory_left[parallel_traj_ind_left][1], 0.5))
             parallel_traj_ind_left += 1
         elif is_parallel_left:
             is_parallel_left = False
             parallel_traj_ind_left = 0
+            train_data['s4_'+str(ind_s4)] = log_s4
+            log_s4 = []
+            ind_s4 += 1
 
         vir_veh_4 = [ball_paral_left.GetPos().x, ball_paral_left.GetPos().y] if is_parallel_left else [0,0]
         # Serial
         if is_serial and serial_traj_ind < len(serial_trajectory):
+            log_s5.append([time,serial_trajectory[serial_traj_ind][0], serial_trajectory[serial_traj_ind][1]])
+
             ball_serial.SetPos(chrono.ChVector3d(serial_trajectory[serial_traj_ind][0], serial_trajectory[serial_traj_ind][1], 0.5))
             serial_traj_ind += 1
         elif is_serial:
             is_serial = False
             serial_traj_ind = 0
+            train_data['s5_'+str(ind_s5)] = log_s5
+            log_s5 = []
+            ind_s5 += 1
             
         vir_veh_5 = [ball_serial.GetPos().x, ball_serial.GetPos().y] if is_serial else [0,0]
         # write virtual vehicles position and sedan state into csv file
-        with open('./data/training_data/sedan_train_data.csv', 'a') as f:
-            writer = csv.writer(f)
-            writer.writerow([time, veh_x, veh_y, veh_heading, vir_veh_1[0], vir_veh_1[1], vir_veh_2[0], vir_veh_2[1], vir_veh_3[0], vir_veh_3[1], vir_veh_4[0], vir_veh_4[1], vir_veh_5[0], vir_veh_5[1]])
+        # with open('./data/training_data/sedan_train_data.csv', 'a') as f:
+        #     writer = csv.writer(f)
+        #     writer.writerow([time, veh_x, veh_y, veh_heading, vir_veh_1[0], vir_veh_1[1], vir_veh_2[0], vir_veh_2[1], vir_veh_3[0], vir_veh_3[1], vir_veh_4[0], vir_veh_4[1], vir_veh_5[0], vir_veh_5[1]])
         vis.Render()
         vis.EndScene()
         # filename = './prototype/img_' + str(render_frame) +'.jpg' 
@@ -458,3 +496,13 @@ while vis.Run() :
     # Spin in place for real time to catch up
     realtime_timer.Spin(step_size)
 
+else:
+    list_of_traindata = list(train_data.values())
+    print('number of element: ',len(list_of_traindata))
+    # this is the center vehicle
+    print('number of steps: ', len(list_of_traindata[0]))
+    np.save('./data/training_data/sedan_train_data.npy', np.array(list_of_traindata, dtype=object))
+    loaded_data = list(np.load('./data/training_data/sedan_train_data.npy', allow_pickle=True))
+    print('number of element',len(loaded_data))
+    print('number of steps: ', len(loaded_data[0])) # center vehicle information
+    

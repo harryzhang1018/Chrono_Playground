@@ -1,5 +1,5 @@
 import numpy as np
-# import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 import time
 from scipy.interpolate import CubicSpline,splprep, splev
 # Load the trajectory from the CSV file

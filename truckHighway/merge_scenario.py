@@ -43,6 +43,18 @@ def merging_scenario(trajectory, truck_x, truck_y, from_left_right='left',vel=31
     tck,u = splprep(keypoints.T,s=0)
     traj_x,traj_y = splev(t,tck)
     merging_traj = np.array([traj_x,traj_y]).T
+    # add heading to the trajectory
+    delta_x = np.diff(traj_x)
+    delta_y = np.diff(traj_y)
+    traj_heading = np.arctan2(delta_y, delta_x)
+    # Repeat the last heading for the final point to match lengths
+    traj_heading = np.append(traj_heading, traj_heading[-1])
+    # Create an array of the same length as merging_traj, filled with v
+    v_column = np.full(merging_traj.shape[0], vel)
+    # Add v_column as the fourth column in merging_traj
+    merging_traj = np.column_stack((merging_traj,traj_heading ,v_column))
+    # print('merging scenario:',merging_traj.shape)
+    # print(merging_traj)
     return merging_traj
 
 def parallel_scenario(trajectory, truck_x, truck_y, from_left_right='left',vel=31,run_time=3.8,freq=20):
@@ -78,6 +90,16 @@ def parallel_scenario(trajectory, truck_x, truck_y, from_left_right='left',vel=3
     tck,u = splprep(keypoints.T,s=0)
     traj_x,traj_y = splev(t,tck)
     merging_traj = np.array([traj_x,traj_y]).T
+    # add heading to the trajectory
+    delta_x = np.diff(traj_x)
+    delta_y = np.diff(traj_y)
+    traj_heading = np.arctan2(delta_y, delta_x)
+    # Repeat the last heading for the final point to match lengths
+    traj_heading = np.append(traj_heading, traj_heading[-1])
+    # Create an array of the same length as merging_traj, filled with v
+    v_column = np.full(merging_traj.shape[0], vel)
+    # Add v_column as the fourth column in merging_traj
+    merging_traj = np.column_stack((merging_traj,traj_heading ,v_column))
     return merging_traj
 
 def serial_scenario(trajectory, truck_x, truck_y,vel=31,run_time=3.8,freq=20):
@@ -102,6 +124,10 @@ def serial_scenario(trajectory, truck_x, truck_y,vel=31,run_time=3.8,freq=20):
     index_list = np.linspace(start_index,end_index,num_points)
     index_list = index_list.astype(int)
     merging_traj = trajectory[index_list]
+    # Create an array of the same length as merging_traj, filled with v
+    v_column = np.full(merging_traj.shape[0], vel)
+    # Add v_column as the fourth column in merging_traj
+    merging_traj = np.column_stack((merging_traj ,v_column))
     return merging_traj
 
 # trajectory = np.loadtxt('trajectory.csv', delimiter=',')

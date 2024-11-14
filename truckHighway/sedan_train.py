@@ -16,8 +16,9 @@ import pychrono.vehicle as veh
 import math
 import numpy as np
 import time
-from controller import error_state
+from controller import error_state ,vir_veh_controller
 from merge_scenario import merging_scenario,parallel_scenario,serial_scenario
+from rom_vehicle import simplifiedVehModel
 import csv
 """
 !!!! Set this path before running the demo!
@@ -58,7 +59,7 @@ step_size = 1e-3
 tire_step_size = step_size
 
 # Time interval between two render frames
-render_step_size = 1.0 / 25  # FPS = 50
+render_step_size = 1.0 / 20  # FPS = 50
 control_step_size = 1.0 / 20 # FPS to run control = 20
 
 # =============================================================================
@@ -272,6 +273,14 @@ log_s1,log_s2,log_s3,log_s4,log_s5 = [],[],[],[],[]
 train_data = {}
 center_veh_log = []
 
+# initialize the virtual vehicles
+sur_veh1 = simplifiedVehModel([0,0,0,0],[0,0],control_step_size)
+sur_veh2 = simplifiedVehModel([0,0,0,0],[0,0],control_step_size)
+sur_veh3 = simplifiedVehModel([0,0,0,0],[0,0],control_step_size)
+sur_veh4 = simplifiedVehModel([0,0,0,0],[0,0],control_step_size)
+sur_veh5 = simplifiedVehModel([0,0,0,0],[0,0],control_step_size)
+
+
 while vis.Run() :
     time = sedan.GetSystem().GetChTime()
     # control sedan vehicle 
@@ -317,10 +326,13 @@ while vis.Run() :
                 merge_trajectory_left = new_trajectory
                 is_merging_left = True
                 merge_traj_ind_left = 0
+                sur_veh2.set_state([merge_trajectory_left[0][0],merge_trajectory_left[0][1],merge_trajectory_left[0][2],vel])
             else:
                 merge_trajectory = new_trajectory
                 is_merging = True
                 merge_traj_ind = 0
+                # add virtual vehicle
+                sur_veh1.set_state([merge_trajectory[0][0],merge_trajectory[0][1],merge_trajectory[0][2],vel])
             
             last_merge_side = from_side
         elif scenario_choice < 0.8:  # 40% chance for parallel
@@ -341,10 +353,12 @@ while vis.Run() :
                 parallel_trajectory_left = new_trajectory
                 is_parallel_left = True
                 parallel_traj_ind_left = 0
+                sur_veh3.set_state([parallel_trajectory_left[0][0],parallel_trajectory_left[0][1],parallel_trajectory_left[0][2],driver_vel])
             else:
                 parallel_trajectory = new_trajectory
                 is_parallel = True
                 parallel_traj_ind = 0
+                sur_veh4.set_state([parallel_trajectory[0][0],parallel_trajectory[0][1],parallel_trajectory[0][2],driver_vel])
             
             last_parallel_side = from_side
         else:  # 20% chance for serial, but only if no merging is active
@@ -362,6 +376,7 @@ while vis.Run() :
                 
                 is_serial = True
                 serial_traj_ind = 0
+                sur_veh5.set_state([serial_trajectory[0][0],serial_trajectory[0][1],serial_trajectory[0][2],driver_vel])
             else:
                 print("Serial scenario skipped due to active merging")
 
@@ -379,6 +394,28 @@ while vis.Run() :
         throttle = 0.5 * vel_error + 0.5
         driver.SetSteering(steering)
         driver.SetThrottle(throttle)
+
+        if is_merging and merge_traj_ind < len(merge_trajectory):
+            control1 = vir_veh_controller(veh_state=[sur_veh1.x,sur_veh1.y, sur_veh1.theta,sur_veh1.v],ref_traj=merge_trajectory,lookahead=1.0)
+            sur_veh1.update(control1)
+        
+        if is_merging_left and merge_traj_ind_left < len(merge_trajectory_left):
+            control2 = vir_veh_controller(veh_state=[sur_veh2.x,sur_veh2.y, sur_veh2.theta,sur_veh2.v],ref_traj=merge_trajectory_left,lookahead=1.0)
+            sur_veh2.update(control2)
+        
+        if is_parallel and parallel_traj_ind < len(parallel_trajectory):
+            control3 = vir_veh_controller(veh_state=[sur_veh4.x,sur_veh4.y, sur_veh4.theta,sur_veh4.v],ref_traj=parallel_trajectory,lookahead=1.0)
+            sur_veh4.update(control3)
+        
+        if is_parallel_left and parallel_traj_ind_left < len(parallel_trajectory_left):
+            control4 = vir_veh_controller(veh_state=[sur_veh3.x,sur_veh3.y, sur_veh3.theta,sur_veh3.v],ref_traj=parallel_trajectory_left,lookahead=1.0)
+            sur_veh3.update(control4)
+        
+        if is_serial and serial_traj_ind < len(serial_trajectory):
+            control5 = vir_veh_controller(veh_state=[sur_veh5.x,sur_veh5.y, sur_veh5.theta,sur_veh5.v],ref_traj=serial_trajectory,lookahead=1.0)
+            sur_veh5.update(control5)
+            
+
     
     # Render scene and output POV-Ray data
     if (step_number % render_steps == 0) :
@@ -388,14 +425,20 @@ while vis.Run() :
         train_data['center_vehicle'] = center_veh_log
 
         if is_merging and merge_traj_ind < len(merge_trajectory):
-            # s1file = './data/training_data/s1_'+str(ind_s1)+'.csv'
-            # with open(s1file, 'a') as f:
-            #     writer = csv.writer(f)
-            #     writer.writerow([time,merge_trajectory[merge_traj_ind][0], merge_trajectory[merge_traj_ind][1]])
-            log_s1.append([time,merge_trajectory[merge_traj_ind][0], merge_trajectory[merge_traj_ind][1]])
-            
-            ball_merge_right.SetPos(chrono.ChVector3d(merge_trajectory[merge_traj_ind][0], merge_trajectory[merge_traj_ind][1], 0.5))
-            merge_traj_ind += 1
+            dis_2_end_1 = np.sqrt((merge_trajectory[-1][0]-sur_veh1.x)**2 + (merge_trajectory[-1][1]-sur_veh1.y)**2)
+            if dis_2_end_1 < 1:
+                is_merging = False
+                merge_traj_ind = 0
+                train_data['s1_'+str(ind_s1)] = log_s1
+                log_s1 = []
+                ind_s1 += 1
+            else:
+                log_s1.append([time,sur_veh1.x,sur_veh1.y,sur_veh1.theta])
+                
+                # ball_merge_right.SetPos(chrono.ChVector3d(merge_trajectory[merge_traj_ind][0], merge_trajectory[merge_traj_ind][1], 0.5))
+                ball_merge_right.SetPos(chrono.ChVector3d(sur_veh1.x, sur_veh1.y, 0.5))
+                print("vir vehicle velocity: ",sur_veh1.v)
+                merge_traj_ind += 1
 
         elif is_merging:
             is_merging = False
@@ -405,15 +448,22 @@ while vis.Run() :
             ind_s1 += 1
             
             
-            
-        vir_veh_1 = [ball_merge_right.GetPos().x, ball_merge_right.GetPos().y] if is_merging else [0,0]
-
+        
         # Left merge
         if is_merging_left and merge_traj_ind_left < len(merge_trajectory_left):
-            log_s2.append([time,merge_trajectory_left[merge_traj_ind_left][0], merge_trajectory_left[merge_traj_ind_left][1]])
+            dis_2_end_2 = np.sqrt((merge_trajectory_left[-1][0]-sur_veh2.x)**2 + (merge_trajectory_left[-1][1]-sur_veh2.y)**2)
+            if dis_2_end_2 < 1:
+                is_merging_left = False
+                merge_traj_ind_left = 0
+                train_data['s2_'+str(ind_s2)] = log_s2
+                log_s2 = []
+                ind_s2 += 1
+            else:
+                log_s2.append([time,sur_veh2.x,sur_veh2.y,sur_veh2.theta])
 
-            ball_merge_left.SetPos(chrono.ChVector3d(merge_trajectory_left[merge_traj_ind_left][0], merge_trajectory_left[merge_traj_ind_left][1], 0.5))
-            merge_traj_ind_left += 1
+                ball_merge_left.SetPos(chrono.ChVector3d(sur_veh2.x,sur_veh2.y, 0.5))
+                merge_traj_ind_left += 1
+
         elif is_merging_left:
             is_merging_left = False
             merge_traj_ind_left = 0
@@ -421,13 +471,21 @@ while vis.Run() :
             log_s2 = []
             ind_s2 += 1
             
-        vir_veh_2 = [ball_merge_left.GetPos().x, ball_merge_left.GetPos().y] if is_merging_left else [0,0]
         # Right parallel
         if is_parallel and parallel_traj_ind < len(parallel_trajectory):
-            log_s3.append([time,parallel_trajectory[parallel_traj_ind][0], parallel_trajectory[parallel_traj_ind][1]])
+            dis_2_end_3 = np.sqrt((parallel_trajectory[-1][0]-sur_veh4.x)**2 + (parallel_trajectory[-1][1]-sur_veh4.y)**2)
+            if dis_2_end_3 < 1:
+                is_parallel = False
+                parallel_traj_ind = 0
+                train_data['s3_'+str(ind_s3)] = log_s3
+                log_s3 = []
+                ind_s3 += 1
+            else:
+                log_s3.append([time,sur_veh4.x,sur_veh4.y,sur_veh4.theta])
 
-            ball_paral_right.SetPos(chrono.ChVector3d(parallel_trajectory[parallel_traj_ind][0], parallel_trajectory[parallel_traj_ind][1], 0.5))
-            parallel_traj_ind += 1
+                ball_paral_right.SetPos(chrono.ChVector3d(sur_veh4.x,sur_veh4.y, 0.5))
+                parallel_traj_ind += 1
+            
         elif is_parallel:
             is_parallel = False
             parallel_traj_ind = 0
@@ -435,14 +493,21 @@ while vis.Run() :
             log_s3 = []
             ind_s3 += 1
         
-        vir_veh_3 = [ball_paral_right.GetPos().x, ball_paral_right.GetPos().y] if is_parallel else [0,0]
-
         # Left parallel
         if is_parallel_left and parallel_traj_ind_left < len(parallel_trajectory_left): 
-            log_s4.append([time,parallel_trajectory_left[parallel_traj_ind_left][0], parallel_trajectory_left[parallel_traj_ind_left][1]])
+            dis_2_end_4 = np.sqrt((parallel_trajectory_left[-1][0]-sur_veh3.x)**2 + (parallel_trajectory_left[-1][1]-sur_veh3.y)**2)
+            if dis_2_end_4 < 1:
+                is_parallel_left = False
+                parallel_traj_ind_left = 0
+                train_data['s4_'+str(ind_s4)] = log_s4
+                log_s4 = []
+                ind_s4 += 1
+            else:
+                log_s4.append([time,sur_veh3.x,sur_veh3.y,sur_veh3.theta])
 
-            ball_paral_left.SetPos(chrono.ChVector3d(parallel_trajectory_left[parallel_traj_ind_left][0], parallel_trajectory_left[parallel_traj_ind_left][1], 0.5))
-            parallel_traj_ind_left += 1
+                ball_paral_left.SetPos(chrono.ChVector3d(sur_veh3.x,sur_veh3.y, 0.5))
+                parallel_traj_ind_left += 1
+
         elif is_parallel_left:
             is_parallel_left = False
             parallel_traj_ind_left = 0
@@ -453,22 +518,26 @@ while vis.Run() :
         vir_veh_4 = [ball_paral_left.GetPos().x, ball_paral_left.GetPos().y] if is_parallel_left else [0,0]
         # Serial
         if is_serial and serial_traj_ind < len(serial_trajectory):
-            log_s5.append([time,serial_trajectory[serial_traj_ind][0], serial_trajectory[serial_traj_ind][1]])
+            dis_2_end_5 = np.sqrt((serial_trajectory[-1][0]-sur_veh5.x)**2 + (serial_trajectory[-1][1]-sur_veh5.y)**2)
+            if dis_2_end_5 < 1:
+                is_serial = False
+                serial_traj_ind = 0
+                train_data['s5_'+str(ind_s5)] = log_s5
+                log_s5 = []
+                ind_s5 += 1
+            else:
+                log_s5.append([time,sur_veh5.x,sur_veh5.y,sur_veh5.theta])
 
-            ball_serial.SetPos(chrono.ChVector3d(serial_trajectory[serial_traj_ind][0], serial_trajectory[serial_traj_ind][1], 0.5))
-            serial_traj_ind += 1
+                ball_serial.SetPos(chrono.ChVector3d(sur_veh5.x,sur_veh5.y, 0.5))
+                serial_traj_ind += 1
+
         elif is_serial:
             is_serial = False
             serial_traj_ind = 0
             train_data['s5_'+str(ind_s5)] = log_s5
             log_s5 = []
             ind_s5 += 1
-            
-        vir_veh_5 = [ball_serial.GetPos().x, ball_serial.GetPos().y] if is_serial else [0,0]
-        # write virtual vehicles position and sedan state into csv file
-        # with open('./data/training_data/sedan_train_data.csv', 'a') as f:
-        #     writer = csv.writer(f)
-        #     writer.writerow([time, veh_x, veh_y, veh_heading, vir_veh_1[0], vir_veh_1[1], vir_veh_2[0], vir_veh_2[1], vir_veh_3[0], vir_veh_3[1], vir_veh_4[0], vir_veh_4[1], vir_veh_5[0], vir_veh_5[1]])
+
         vis.Render()
         vis.EndScene()
         # filename = './prototype/img_' + str(render_frame) +'.jpg' 

@@ -274,11 +274,11 @@ train_data = {}
 center_veh_log = []
 
 # initialize the virtual vehicles
-sur_veh1 = simplifiedVehModel([0,0,0,0],[0,0],control_step_size)
-sur_veh2 = simplifiedVehModel([0,0,0,0],[0,0],control_step_size)
-sur_veh3 = simplifiedVehModel([0,0,0,0],[0,0],control_step_size)
-sur_veh4 = simplifiedVehModel([0,0,0,0],[0,0],control_step_size)
-sur_veh5 = simplifiedVehModel([0,0,0,0],[0,0],control_step_size)
+sur_veh1 = simplifiedVehModel(sedan.GetSystem(),[0,0,0,0],[0,0],control_step_size,False)
+sur_veh2 = simplifiedVehModel(sedan.GetSystem(),[0,0,0,0],[0,0],control_step_size,False)
+sur_veh3 = simplifiedVehModel(sedan.GetSystem(),[0,0,0,0],[0,0],control_step_size,False)
+sur_veh4 = simplifiedVehModel(sedan.GetSystem(),[0,0,0,0],[0,0],control_step_size,False)
+sur_veh5 = simplifiedVehModel(sedan.GetSystem(),[0,0,0,0],[0,0],control_step_size,False)
 
 
 while vis.Run() :

@@ -162,13 +162,13 @@ update_rate = 15
 image_width = 1280
 image_height = 720
 # Camera's horizontal field of view
-fov = 1.508
+fov = 2.8
 # Lag (in seconds) between sensing and when data becomes accessible
 lag = 0
 # Exposure (in seconds) of each image
 exposure_time = 0
 offset_pose = chrono.ChFramed(
-        chrono.ChVector3d(-1.5, -0.25, 0.7), chrono.QuatFromAngleAxis(0.0, chrono.ChVector3d(0, 1, 0)))
+        chrono.ChVector3d(-1.35, -0.25, 0.8), chrono.QuatFromAngleAxis(-0.1, chrono.ChVector3d(0, 1, 0)))
 cam = sens.ChCameraSensor(
         sedan.GetChassisBody(),              # body camera is attached to
         update_rate,            # update rate in Hz
@@ -209,6 +209,7 @@ vis.AttachVehicle(sedan.GetVehicle())
 
 # Create the driver system
 driver = veh.ChInteractiveDriverIRR(vis)
+driver.SetJoystickConfigFile(chrono.GetChronoDataFile('vehicle/joystick/controller_WheelPedalsAndShifters.json'))
 # Set the time response for steering and throttle keyboard inputs.
 steering_time = 1.0  # time to go from 0 to +1 (or from 0 to -1)
 throttle_time = 1.0  # time to go from 0 to +1

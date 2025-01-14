@@ -13,6 +13,8 @@
 import pychrono.core as chrono
 import pychrono.irrlicht as irr
 import pychrono.vehicle as veh
+import pychrono.sensor as sens
+
 import math
 import numpy as np
 # import time
@@ -25,6 +27,14 @@ import csv
 """
 chrono.SetChronoDataPath(chrono.GetChronoDataPath())
 veh.SetDataPath(chrono.GetChronoDataPath() + 'vehicle/')
+
+
+import sys,os
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(project_root)
+# Add the parent directory of 'models' to the Python path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 
 # Initial vehicle location and orientation
 initLoc = chrono.ChVector3d(-500, 0, 0.3)
@@ -112,7 +122,7 @@ road_vis_mat.SetDiffuseColor(chrono.ChColor(1.0, 1.0, 1.0))
 # Create ChBodyEasyBox objects at specified positions
 # reference centerline of the sedan
 # reference_trajectory = np.loadtxt('./data/reference_traj/trajectory.csv', delimiter=',')
-reference_trajectory = np.loadtxt('./data/reference_traj/trajectory_complex.csv', delimiter=',')
+reference_trajectory = np.loadtxt(project_root+'/truckHighway/data/reference_traj/trajectory_complex.csv', delimiter=',')
 # only show sparse points not all points
 visual_reference_trajectory = reference_trajectory[::50]
 for pos in visual_reference_trajectory:
@@ -140,6 +150,39 @@ for pos in visual_reference_trajectory:
     sedan.GetSystem().Add(left_lane_body)
     
     #sedan.GetSystem().Add(box_body)
+
+manager = sens.ChSensorManager(sedan.GetSystem())
+
+intensity = 1.0
+manager.scene.AddPointLight(chrono.ChVector3f(2, 2.5, 100), chrono.ChColor(intensity, intensity, intensity), 500.0)
+
+# Update rate in Hz
+update_rate = 15
+# Image width and height
+image_width = 1280
+image_height = 720
+# Camera's horizontal field of view
+fov = 1.508
+# Lag (in seconds) between sensing and when data becomes accessible
+lag = 0
+# Exposure (in seconds) of each image
+exposure_time = 0
+offset_pose = chrono.ChFramed(
+        chrono.ChVector3d(-1.5, -0.25, 0.7), chrono.QuatFromAngleAxis(0.0, chrono.ChVector3d(0, 1, 0)))
+cam = sens.ChCameraSensor(
+        sedan.GetChassisBody(),              # body camera is attached to
+        update_rate,            # update rate in Hz
+        offset_pose,            # offset pose
+        image_width,            # image width
+        image_height,           # image height
+        fov)                    # camera's horizontal field of view
+cam.SetName("Camera Sensor")
+cam.SetLag(lag)
+cam.SetCollectionWindow(exposure_time)
+cam.PushFilter(sens.ChFilterVisualize(image_width, image_height, "Before Grayscale Filter"))
+# add sensor to manager
+manager.AddSensor(cam)
+
 
 # initialize the virtual vehicles
 sur_veh1 = simplifiedVehModel(sedan.GetSystem(),[0,0,0,0],[0,0],control_step_size)
@@ -229,6 +272,9 @@ center_veh_log = []
 
 while vis.Run() :
     time = sedan.GetSystem().GetChTime()
+
+    manager.Update()
+
     # control sedan vehicle 
     # driver_sedan = straight() # lanechange
     # get trailer and tractor position

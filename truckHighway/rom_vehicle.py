@@ -1,5 +1,10 @@
 import numpy as np
 import pychrono as chrono
+import sys,os
+# Add the parent directory of 'models' to the Python path
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(project_root)
+
 
 class simplifiedVehModel():
     def __init__(self,system, state, control ,dt, Visualize = True):
@@ -23,7 +28,7 @@ class simplifiedVehModel():
         # self.veh_chassis.AddVisualShape(chassis_trimesh_shape)
         # self.veh_chassis.SetMass(0)
         # self.veh_chassis.SetFixed(False)
-        self.veh_chassis = chrono.ChBodyEasyMesh('./data/audi.obj', 1000, True, True, False,chrono.ChContactMaterialNSC())
+        self.veh_chassis = chrono.ChBodyEasyMesh(project_root+'/truckHighway/data/audi.obj', 1000, True, True, False,chrono.ChContactMaterialNSC())
         self.veh_chassis.GetVisualShape(0).SetVisible(True)
         self.veh_chassis.SetMass(0)
         self.veh_chassis.SetFixed(False)

@@ -71,7 +71,10 @@ tire_step_size = step_size
 # Time interval between two render frames
 render_step_size = 1.0 / 20  # FPS = 50
 control_step_size = 1.0 / 20 # FPS to run control = 20
-
+delay_time = 0.0 # time for delayed signal to be sent
+throttle_buffer = [0]*int(delay_time/control_step_size)
+steering_buffer = [0]*int(delay_time/control_step_size)
+brake_buffer = [0]*int(delay_time/control_step_size)
 # =============================================================================
 
 # --------------
@@ -287,6 +290,7 @@ while vis.Run() :
     veh_back_x = veh_x - 5.74 * np.cos(veh_heading)
     veh_back_y = veh_y - 5.74 * np.sin(veh_heading)
     
+    
 
     if time > next_trajectory_time:
 
@@ -385,8 +389,22 @@ while vis.Run() :
         current_vel = sedan.GetVehicle().GetSpeed()
         vel_error = ref_vel - current_vel
         throttle = 0.5 * vel_error + 0.5
-        driver.SetSteering(steering)
-        driver.SetThrottle(throttle)
+
+        # update the control buffer
+        throttle_buffer.append(throttle)
+        steering_buffer.append(steering)
+        brake_buffer.append(0)
+        # Update the vehicle driver inputs
+        print(f"Time: {time:.2f}, steering: {steering_buffer[0]:.2f}, throttle: {throttle_buffer[0]:.2f}")
+        driver.SetSteering(steering_buffer[0])
+        driver.SetThrottle(throttle_buffer[0])
+        driver.SetBraking(brake_buffer[0])
+        # Update the buffer
+        throttle_buffer.pop(0)
+        steering_buffer.pop(0)
+        brake_buffer.pop(0)
+        # Get driver inputs
+        driver_inputs = driver.GetInputs()
 
         if is_merging and merge_traj_ind < len(merge_trajectory):
             control1 = vir_veh_controller(veh_state=[sur_veh1.x,sur_veh1.y, sur_veh1.theta,sur_veh1.v],ref_traj=merge_trajectory,lookahead=1.0)
@@ -542,8 +560,7 @@ while vis.Run() :
 
         
 
-    # Get driver inputs
-    driver_inputs = driver.GetInputs()
+    
     # Update modules (process inputs from other modules)
     driver.Synchronize(time)
     terrain.Synchronize(time)

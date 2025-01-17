@@ -193,6 +193,9 @@ sur_veh2 = simplifiedVehModel(sedan.GetSystem(),[0,0,0,0],[0,0],control_step_siz
 sur_veh3 = simplifiedVehModel(sedan.GetSystem(),[0,0,0,0],[0,0],control_step_size)
 sur_veh4 = simplifiedVehModel(sedan.GetSystem(),[0,0,0,0],[0,0],control_step_size)
 sur_veh5 = simplifiedVehModel(sedan.GetSystem(),[0,0,0,0],[0,0],control_step_size)
+
+# virtual vehicle for powertrain conversion
+vir_veh = simplifiedVehModel(sedan.GetSystem(),[0,0,0,0],[0,0],control_step_size,False)
 # -------------------------------------
 # Create the vehicle Irrlicht interface
 # Create the driver system
@@ -272,7 +275,8 @@ train_data = {}
 center_veh_log = []
 
 
-
+real_vehicle_state = []
+vir_vehicle_state = []
 
 while vis.Run() :
     time = sedan.GetSystem().GetChTime()
@@ -387,9 +391,18 @@ while vis.Run() :
         steering = sum([x * y for x, y in zip(error, [0.02176878 , 0.72672704 , 0.78409284 ,-0.0105355 ])]) # @hang here is the place to add controller
         ref_vel = 20
         current_vel = sedan.GetVehicle().GetSpeed()
+        current_accel = sedan.GetVehicle().GetPointAcceleration(chrono.ChVector3d(0,0,0)).x
         vel_error = ref_vel - current_vel
         throttle = 0.5 * vel_error + 0.5
-
+        steering = np.clip(steering,-1.0,1.0)
+        throttle = np.clip(throttle,0.0,1.0)
+        # log real vehicle state:
+        real_vehicle_state.append([time,veh_x,veh_y,veh_heading,current_vel,current_accel])
+        # obtain the virtual vehicle state
+        vir_veh.set_state([veh_x,veh_y,veh_heading,current_vel])
+        vir_veh.update([throttle,steering])
+        updated_vir_state = vir_veh.get_state()
+        vir_vehicle_state.append([time,updated_vir_state[0],updated_vir_state[1],updated_vir_state[2],updated_vir_state[3],updated_vir_state[4]])
         # update the control buffer
         throttle_buffer.append(throttle)
         steering_buffer.append(steering)
@@ -584,13 +597,16 @@ else:
     print('number of element: ',len(list_of_traindata))
     # this is the center vehicle
     print('number of steps: ', len(list_of_traindata[0]))
-    np.save('./data/training_data/sedan_train_data.npy', np.array(list_of_traindata, dtype=object))
-    with open('./data/training_data/sedan_train_data.txt', 'w') as f:
+    np.save(project_root+'/truckHighway/data/training_data/sedan_train_data.npy', np.array(list_of_traindata, dtype=object))
+    with open(project_root+'/truckHighway/data/training_data/sedan_train_data.txt', 'w') as f:
         for item in list_of_traindata:
             np.savetxt(f, item, fmt='%f')
             f.write('\n')
 
-    loaded_data = list(np.load('./data/training_data/sedan_train_data.npy', allow_pickle=True))
+    loaded_data = list(np.load(project_root+'/truckHighway/data/training_data/sedan_train_data.npy', allow_pickle=True))
     print('number of element',len(loaded_data))
     print('number of steps: ', len(loaded_data[0])) # center vehicle information
+
+    # np.savetxt(project_root+'/truckHighway/data/virstate.csv',np.array(vir_vehicle_state),delimiter=',',fmt='%f')
+    # np.savetxt(project_root+'/truckHighway/data/realstate.csv',np.array(real_vehicle_state),delimiter=',',fmt='%f')
     

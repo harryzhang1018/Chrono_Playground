@@ -6,6 +6,7 @@ project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(project_root)
 
 
+
 class simplifiedVehModel():
     def __init__(self,system, state, control ,dt, Visualize = True):
         self.system = system
@@ -14,29 +15,21 @@ class simplifiedVehModel():
         self.y = state[1]
         self.theta = state[2]
         self.v = state[3]
+        self.accel = 0
         # control = [alpha, beta]
         self.alpha = control[0]
         self.beta = control[1]
         self.dt = dt # time step
-
-        # chassis_mesh = chrono.ChTriangleMeshConnected()
-        # chassis_mesh.LoadWavefrontMesh(chrono.GetChronoDataFile('vehicle/audi/audi_chassis_white.obj'), True, True)
-        # chassis_mesh.Transform(chrono.ChVector3d(0, 0, 0), chrono.ChMatrix33d(1))
-        # chassis_trimesh_shape = chrono.ChVisualShapeTriangleMesh()
-        # chassis_trimesh_shape.SetMesh(chassis_mesh)
-        # self.veh_chassis = chrono.ChBody()
-        # self.veh_chassis.AddVisualShape(chassis_trimesh_shape)
-        # self.veh_chassis.SetMass(0)
-        # self.veh_chassis.SetFixed(False)
-        self.veh_chassis = chrono.ChBodyEasyMesh(project_root+'/truckHighway/data/audi.obj', 1000, True, True, False,chrono.ChContactMaterialNSC())
-        self.veh_chassis.GetVisualShape(0).SetVisible(True)
-        self.veh_chassis.SetMass(0)
-        self.veh_chassis.SetFixed(False)
-        self.veh_chassis.SetPos(chrono.ChVector3d(self.x, self.y, 0.6))
-        self.veh_chassis.SetRot(chrono.QuatFromAngleZ(self.theta + np.pi))
-        system.Add(self.veh_chassis)
         self.vis = Visualize
+
         if Visualize:
+            self.veh_chassis = chrono.ChBodyEasyMesh(project_root+'/truckHighway/data/audi.obj', 1000, True, True, False,chrono.ChContactMaterialNSC())
+            self.veh_chassis.GetVisualShape(0).SetVisible(True)
+            self.veh_chassis.SetMass(0)
+            self.veh_chassis.SetFixed(False)
+            self.veh_chassis.SetPos(chrono.ChVector3d(self.x, self.y, 0.6))
+            self.veh_chassis.SetRot(chrono.QuatFromAngleZ(self.theta + np.pi))
+            system.Add(self.veh_chassis)
             self.visualize_vehicle()
     
     def visualize_vehicle(self):
@@ -57,8 +50,8 @@ class simplifiedVehModel():
         # car parameters
         delta = 0.667
         l = 2.5
-        tau0 = 130
-        omega0 = 1600
+        tau0 = 100
+        omega0 = 1200
         gamma = 1/3
         r_wheel = 0.3
         i_wheel = 0.6
@@ -74,7 +67,8 @@ class simplifiedVehModel():
         self.x += self.v*np.cos(self.theta)*self.dt
         self.y += self.v*np.sin(self.theta)*self.dt
         self.theta += (self.v*np.tan(self.beta * delta)/l)*self.dt
-        self.v += helpfunT * gamma / i_wheel * r_wheel * self.dt
+        self.accel = helpfunT * gamma / i_wheel * r_wheel
+        self.v += self.accel * self.dt
 
         # update the visualization
         if self.vis:
@@ -87,7 +81,7 @@ class simplifiedVehModel():
         self.v = state[3]
     
     def get_state(self):
-        return [self.x, self.y, self.theta, self.v] 
+        return [self.x, self.y, self.theta, self.v, self.accel] 
 
 # vehicle = simplifiedVehModel([0,0,0,0],[0,0],0.05)
 # vehicle.set_state([1,1,0,0])

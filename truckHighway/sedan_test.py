@@ -21,7 +21,7 @@ import numpy as np
 from controller import error_state ,vir_veh_controller
 from merge_scenario import merging_scenario,parallel_scenario,serial_scenario
 from rom_vehicle import simplifiedVehModel
-import csv
+import pygame
 """
 !!!! Set this path before running the demo!
 """
@@ -215,8 +215,7 @@ vis.AttachVehicle(sedan.GetVehicle())
 
 # Create the driver system
 driver = veh.ChInteractiveDriverIRR(vis)
-driver.SetJoystickConfigFile(chrono.GetChronoDataFile('vehicle/joystick/controller_WheelPedalsAndShifters.json'))
-# Set the time response for steering and throttle keyboard inputs.
+driver.SetJoystickConfigFile(project_root+'/data/driving_wheel.json')# Set the time response for steering and throttle keyboard inputs.
 steering_time = 1.0  # time to go from 0 to +1 (or from 0 to -1)
 throttle_time = 1.0  # time to go from 0 to +1
 braking_time = 0.3   # time to go from 0 to +1
@@ -278,6 +277,13 @@ center_veh_log = []
 real_vehicle_state = []
 vir_vehicle_state = []
 
+is_manual = False
+# Initialize pygame and joystick
+pygame.init()
+pygame.joystick.init()
+joystick = pygame.joystick.Joystick(0)
+joystick.init()
+
 while vis.Run() :
     time = sedan.GetSystem().GetChTime()
 
@@ -294,7 +300,13 @@ while vis.Run() :
     veh_back_x = veh_x - 5.74 * np.cos(veh_heading)
     veh_back_y = veh_y - 5.74 * np.sin(veh_heading)
     
-    
+    # listen to the joystick button 23
+    for event in pygame.event.get():
+        # Button press event
+        if event.type == pygame.JOYBUTTONDOWN:
+            if event.button == 23:  # Button 23 pressed
+                is_manual = not is_manual  # Toggle the value
+                print(f"is_manual is now: {is_manual}")
 
     if time > next_trajectory_time:
 
@@ -386,38 +398,41 @@ while vis.Run() :
         next_trajectory_time = time + np.random.uniform(min_pause, max_pause)
 
     if (step_number % control_steps == 0):
-        # for sedan controller now it's a simple PID controller
-        error = error_state(veh_state=[veh_x,veh_y,veh_heading],ref_traj=reference_trajectory,lookahead=3.0)
-        steering = sum([x * y for x, y in zip(error, [0.02176878 , 0.72672704 , 0.78409284 ,-0.0105355 ])]) # @hang here is the place to add controller
-        ref_vel = 20
-        current_vel = sedan.GetVehicle().GetSpeed()
-        current_accel = sedan.GetVehicle().GetPointAcceleration(chrono.ChVector3d(0,0,0)).x
-        vel_error = ref_vel - current_vel
-        throttle = 0.5 * vel_error + 0.5
-        steering = np.clip(steering,-1.0,1.0)
-        throttle = np.clip(throttle,0.0,1.0)
-        # log real vehicle state:
-        real_vehicle_state.append([time,veh_x,veh_y,veh_heading,current_vel,current_accel])
-        # obtain the virtual vehicle state
-        vir_veh.set_state([veh_x,veh_y,veh_heading,current_vel])
-        vir_veh.update([throttle,steering])
-        updated_vir_state = vir_veh.get_state()
-        vir_vehicle_state.append([time,updated_vir_state[0],updated_vir_state[1],updated_vir_state[2],updated_vir_state[3],updated_vir_state[4]])
-        # update the control buffer
-        throttle_buffer.append(throttle)
-        steering_buffer.append(steering)
-        brake_buffer.append(0)
-        # Update the vehicle driver inputs
-        print(f"Time: {time:.2f}, steering: {steering_buffer[0]:.2f}, throttle: {throttle_buffer[0]:.2f}")
-        driver.SetSteering(steering_buffer[0])
-        driver.SetThrottle(throttle_buffer[0])
-        driver.SetBraking(brake_buffer[0])
-        # Update the buffer
-        throttle_buffer.pop(0)
-        steering_buffer.pop(0)
-        brake_buffer.pop(0)
-        # Get driver inputs
-        driver_inputs = driver.GetInputs()
+        if is_manual:
+            driver_inputs = driver.GetInputs()
+        else:
+            # for sedan controller now it's a simple PID controller
+            error = error_state(veh_state=[veh_x,veh_y,veh_heading],ref_traj=reference_trajectory,lookahead=3.0)
+            steering = sum([x * y for x, y in zip(error, [0.02176878 , 0.72672704 , 0.78409284 ,-0.0105355 ])]) # @hang here is the place to add controller
+            ref_vel = 20
+            current_vel = sedan.GetVehicle().GetSpeed()
+            current_accel = sedan.GetVehicle().GetPointAcceleration(chrono.ChVector3d(0,0,0)).x
+            vel_error = ref_vel - current_vel
+            throttle = 0.5 * vel_error + 0.5
+            steering = np.clip(steering,-1.0,1.0)
+            throttle = np.clip(throttle,0.0,1.0)
+            # log real vehicle state:
+            real_vehicle_state.append([time,veh_x,veh_y,veh_heading,current_vel,current_accel])
+            # obtain the virtual vehicle state
+            vir_veh.set_state([veh_x,veh_y,veh_heading,current_vel])
+            vir_veh.update([throttle,steering])
+            updated_vir_state = vir_veh.get_state()
+            vir_vehicle_state.append([time,updated_vir_state[0],updated_vir_state[1],updated_vir_state[2],updated_vir_state[3],updated_vir_state[4]])
+            # update the control buffer
+            throttle_buffer.append(throttle)
+            steering_buffer.append(steering)
+            brake_buffer.append(0)
+            # Update the vehicle driver inputs
+            print(f"Time: {time:.2f}, steering: {steering_buffer[0]:.2f}, throttle: {throttle_buffer[0]:.2f}")
+            driver.SetSteering(steering_buffer[0])
+            driver.SetThrottle(throttle_buffer[0])
+            driver.SetBraking(brake_buffer[0])
+            # Update the buffer
+            throttle_buffer.pop(0)
+            steering_buffer.pop(0)
+            brake_buffer.pop(0)
+            # Get driver inputs
+            driver_inputs = driver.GetInputs()
 
         if is_merging and merge_traj_ind < len(merge_trajectory):
             control1 = vir_veh_controller(veh_state=[sur_veh1.x,sur_veh1.y, sur_veh1.theta,sur_veh1.v],ref_traj=merge_trajectory,lookahead=1.0)
@@ -597,11 +612,11 @@ else:
     print('number of element: ',len(list_of_traindata))
     # this is the center vehicle
     print('number of steps: ', len(list_of_traindata[0]))
-    np.save(project_root+'/truckHighway/data/training_data/sedan_train_data.npy', np.array(list_of_traindata, dtype=object))
-    with open(project_root+'/truckHighway/data/training_data/sedan_train_data.txt', 'w') as f:
-        for item in list_of_traindata:
-            np.savetxt(f, item, fmt='%f')
-            f.write('\n')
+    # np.save(project_root+'/truckHighway/data/training_data/sedan_train_data.npy', np.array(list_of_traindata, dtype=object))
+    # with open(project_root+'/truckHighway/data/training_data/sedan_train_data.txt', 'w') as f:
+    #     for item in list_of_traindata:
+    #         np.savetxt(f, item, fmt='%f')
+    #         f.write('\n')
 
     loaded_data = list(np.load(project_root+'/truckHighway/data/training_data/sedan_train_data.npy', allow_pickle=True))
     print('number of element',len(loaded_data))

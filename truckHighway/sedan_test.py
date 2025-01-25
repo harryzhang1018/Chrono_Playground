@@ -20,7 +20,7 @@ import numpy as np
 # import time
 from controller import error_state ,vir_veh_controller
 from merge_scenario import merging_scenario,parallel_scenario,serial_scenario
-from rom_vehicle import simplifiedVehModel
+from rom_vehicle import simplifiedVehModel,EgoVehModel
 import pygame
 """
 !!!! Set this path before running the demo!
@@ -30,6 +30,7 @@ veh.SetDataPath(chrono.GetChronoDataPath() + 'vehicle/')
 
 
 import sys,os
+import csv
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(project_root)
 # Add the parent directory of 'models' to the Python path
@@ -195,7 +196,7 @@ sur_veh4 = simplifiedVehModel(sedan.GetSystem(),[0,0,0,0],[0,0],control_step_siz
 sur_veh5 = simplifiedVehModel(sedan.GetSystem(),[0,0,0,0],[0,0],control_step_size)
 
 # virtual vehicle for powertrain conversion
-vir_veh = simplifiedVehModel(sedan.GetSystem(),[0,0,0,0],[0,0],control_step_size,False)
+vir_veh = EgoVehModel(sedan.GetSystem(),[0,0,0,0],[0,0,0],control_step_size,False)
 # -------------------------------------
 # Create the vehicle Irrlicht interface
 # Create the driver system
@@ -276,13 +277,16 @@ center_veh_log = []
 
 real_vehicle_state = []
 vir_vehicle_state = []
+vir_veh_training = []
 
 is_manual = False
-# Initialize pygame and joystick
-pygame.init()
-pygame.joystick.init()
-joystick = pygame.joystick.Joystick(0)
-joystick.init()
+is_joystick = False
+if is_joystick:
+    # Initialize pygame and joystick
+    pygame.init()
+    pygame.joystick.init()
+    joystick = pygame.joystick.Joystick(0)
+    joystick.init()
 
 while vis.Run() :
     time = sedan.GetSystem().GetChTime()
@@ -299,14 +303,17 @@ while vis.Run() :
     veh_heading = veh_heading
     veh_back_x = veh_x - 5.74 * np.cos(veh_heading)
     veh_back_y = veh_y - 5.74 * np.sin(veh_heading)
+    current_vel = sedan.GetVehicle().GetSpeed()
+    current_accel = sedan.GetVehicle().GetPointAcceleration(chrono.ChVector3d(0,0,0)).x
     
-    # listen to the joystick button 23
-    for event in pygame.event.get():
-        # Button press event
-        if event.type == pygame.JOYBUTTONDOWN:
-            if event.button == 23:  # Button 23 pressed
-                is_manual = not is_manual  # Toggle the value
-                print(f"is_manual is now: {is_manual}")
+    if is_joystick:
+        # listen to the joystick button 23
+        for event in pygame.event.get():
+            # Button press event
+            if event.type == pygame.JOYBUTTONDOWN:
+                if event.button == 23:  # Button 23 pressed
+                    is_manual = not is_manual  # Toggle the value
+                    print(f"is_manual is now: {is_manual}")
 
     if time > next_trajectory_time:
 
@@ -396,7 +403,9 @@ while vis.Run() :
         # Set the next trajectory generation time
         last_trajectory_time = time
         next_trajectory_time = time + np.random.uniform(min_pause, max_pause)
-
+    if 7 < time < 8:
+        driver.SetThrottle(0.0)
+        driver.SetBraking(0.4)
     if (step_number % control_steps == 0):
         if is_manual:
             driver_inputs = driver.GetInputs()
@@ -404,20 +413,12 @@ while vis.Run() :
             # for sedan controller now it's a simple PID controller
             error = error_state(veh_state=[veh_x,veh_y,veh_heading],ref_traj=reference_trajectory,lookahead=3.0)
             steering = sum([x * y for x, y in zip(error, [0.02176878 , 0.72672704 , 0.78409284 ,-0.0105355 ])]) # @hang here is the place to add controller
-            ref_vel = 20
-            current_vel = sedan.GetVehicle().GetSpeed()
-            current_accel = sedan.GetVehicle().GetPointAcceleration(chrono.ChVector3d(0,0,0)).x
+            ref_vel = 30
             vel_error = ref_vel - current_vel
             throttle = 0.5 * vel_error + 0.5
             steering = np.clip(steering,-1.0,1.0)
             throttle = np.clip(throttle,0.0,1.0)
-            # log real vehicle state:
-            real_vehicle_state.append([time,veh_x,veh_y,veh_heading,current_vel,current_accel])
-            # obtain the virtual vehicle state
-            vir_veh.set_state([veh_x,veh_y,veh_heading,current_vel])
-            vir_veh.update([throttle,steering])
-            updated_vir_state = vir_veh.get_state()
-            vir_vehicle_state.append([time,updated_vir_state[0],updated_vir_state[1],updated_vir_state[2],updated_vir_state[3],updated_vir_state[4]])
+            
             # update the control buffer
             throttle_buffer.append(throttle)
             steering_buffer.append(steering)
@@ -425,14 +426,28 @@ while vis.Run() :
             # Update the vehicle driver inputs
             print(f"Time: {time:.2f}, steering: {steering_buffer[0]:.2f}, throttle: {throttle_buffer[0]:.2f}")
             driver.SetSteering(steering_buffer[0])
-            driver.SetThrottle(throttle_buffer[0])
-            driver.SetBraking(brake_buffer[0])
+            if time <= 7 or time > 8:
+                driver.SetThrottle(throttle_buffer[0])
+            #driver.SetBraking(brake_buffer[0])
             # Update the buffer
             throttle_buffer.pop(0)
             steering_buffer.pop(0)
             brake_buffer.pop(0)
             # Get driver inputs
             driver_inputs = driver.GetInputs()
+
+        throttle = driver.GetThrottle()
+        steering = driver.GetSteering()
+        braking = driver.GetBraking()
+        # log real vehicle state:
+        real_vehicle_state.append([time,veh_x,veh_y,veh_heading,current_vel,current_accel])
+        # save data to csv for training
+        vir_veh_training.append([time,veh_x,veh_y,veh_heading,current_vel,current_accel,throttle,steering,braking])
+        # obtain the virtual vehicle state
+        vir_veh.set_state([veh_x,veh_y,veh_heading,current_vel])
+        vir_veh.update([throttle,steering,braking])
+        updated_vir_state = vir_veh.get_state()
+        vir_vehicle_state.append([time,updated_vir_state[0],updated_vir_state[1],updated_vir_state[2],updated_vir_state[3],updated_vir_state[4]])
 
         if is_merging and merge_traj_ind < len(merge_trajectory):
             control1 = vir_veh_controller(veh_state=[sur_veh1.x,sur_veh1.y, sur_veh1.theta,sur_veh1.v],ref_traj=merge_trajectory,lookahead=1.0)
@@ -622,6 +637,10 @@ else:
     print('number of element',len(loaded_data))
     print('number of steps: ', len(loaded_data[0])) # center vehicle information
 
-    # np.savetxt(project_root+'/truckHighway/data/virstate.csv',np.array(vir_vehicle_state),delimiter=',',fmt='%f')
-    # np.savetxt(project_root+'/truckHighway/data/realstate.csv',np.array(real_vehicle_state),delimiter=',',fmt='%f')
+    np.savetxt(project_root+'/truckHighway/data/virstate.csv',np.array(vir_vehicle_state),delimiter=',',fmt='%f')
+    np.savetxt(project_root+'/truckHighway/data/realstate.csv',np.array(real_vehicle_state),delimiter=',',fmt='%f')
+
+    with open(project_root + '/truckHighway/data/training.csv', 'a', newline='') as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerows(vir_veh_training)
     

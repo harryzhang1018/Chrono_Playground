@@ -5,7 +5,8 @@ import sys,os
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(project_root)
 
-
+from sklearn.preprocessing import PolynomialFeatures
+from sklearn.linear_model import LinearRegression
 
 class simplifiedVehModel():
     def __init__(self,system, state, control ,dt, Visualize = True):
@@ -113,7 +114,21 @@ class EgoVehModel():
             self.veh_chassis.SetRot(chrono.QuatFromAngleZ(self.theta + np.pi))
             system.Add(self.veh_chassis)
             self.visualize_vehicle()
-    
+
+        train_data = np.genfromtxt(project_root+'/truckHighway/data/training.csv', delimiter=',')
+
+        vel = train_data[:,4]
+        throttle = train_data[:,6]
+        braking = train_data[:,8]
+        acc = train_data[:,5]
+
+        alphat = throttle - braking
+        X = np.column_stack((np.ones_like(vel), vel, vel*alphat, vel**2 * alphat))
+
+        # Fit the polynomial regression model
+        self.model = LinearRegression().fit(X, acc)
+
+                
     def visualize_vehicle(self):
         # self.veh_chassis.GetVisualShape(0).SetVisible(True)
         veh_pos = chrono.ChVector3d(self.x, self.y, 0.75)
@@ -152,9 +167,11 @@ class EgoVehModel():
         self.x += self.v*np.cos(self.theta)*self.dt
         self.y += self.v*np.sin(self.theta)*self.dt
         self.theta += (self.v*np.tan(self.beta * delta)/l)*self.dt
-        print('torque function:', helpfunT * gamma / i_wheel * r_wheel)
-        print('braking:', self.braking * brake_effect_coef)
-        self.accel = helpfunT * gamma / i_wheel * r_wheel - self.braking * brake_effect_coef * self.v
+        
+        alpha_t = self.alpha - self.braking
+        feature = np.array([[1,self.v,self.v*alpha_t,self.v**2 * alpha_t]])
+        # Predict the acceleration using the polynomial regression model
+        self.accel = self.model.predict(feature)[0] 
         self.v += self.accel * self.dt
 
         # update the visualization

@@ -2,7 +2,7 @@ import pychrono as chrono
 import pychrono.vehicle as veh
 import pychrono.irrlicht as irr
 import math
-
+import numpy as np
 import sys,os
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(project_root)
@@ -10,7 +10,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../')))
 # =============================================================================
 
 from utils.custom_driver import MyDriver
-
+from utils.data_manager import DataManager
 
 def main():
     # Simulation step sizes
@@ -89,6 +89,9 @@ def main():
     sim_steps = 0
     sim_end_time = 30
     # Simulation loop
+    data_manager = DataManager(vehicle.GetVehicle(), terrain)
+
+
     while vis.Run() :
         time = vehicle.GetSystem().GetChTime()
 
@@ -100,6 +103,7 @@ def main():
             vis.BeginScene()
             vis.Render()
             vis.EndScene()
+            data_manager.WriteNNTrainData()
 
         # Get driver inputs
         driver_inputs = driver.GetInputs()
@@ -118,8 +122,10 @@ def main():
         vis.Advance(step_size)
 
         sim_steps += 1
+
     return 0
-  
+    
+    
 
 veh.SetDataPath(chrono.GetChronoDataPath() + 'vehicle/')
 

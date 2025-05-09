@@ -157,22 +157,22 @@ for pos in visual_reference_trajectory:
 
 manager = sens.ChSensorManager(sedan.GetSystem())
 
-intensity = 1.0
-manager.scene.AddPointLight(chrono.ChVector3f(2, 2.5, 100), chrono.ChColor(intensity, intensity, intensity), 500.0)
+intensity = 0.5
+manager.scene.AddPointLight(chrono.ChVector3f(2, 2.5, 100), chrono.ChColor(intensity, intensity, intensity), 100.0)
 
 # Update rate in Hz
 update_rate = 15
 # Image width and height
-image_width = 1280
-image_height = 720
+image_width = 1280*4
+image_height = 900
 # Camera's horizontal field of view
-fov = 2.8
+fov = 3.5
 # Lag (in seconds) between sensing and when data becomes accessible
 lag = 0
 # Exposure (in seconds) of each image
 exposure_time = 0
 offset_pose = chrono.ChFramed(
-        chrono.ChVector3d(-1.35, -0.25, 0.8), chrono.QuatFromAngleAxis(-0.1, chrono.ChVector3d(0, 1, 0)))
+        chrono.ChVector3d(-1.4, -0.11, 0.66), chrono.QuatFromAngleAxis(-0.1, chrono.ChVector3d(0, 1, 0)))
 cam = sens.ChCameraSensor(
         sedan.GetChassisBody(),              # body camera is attached to
         update_rate,            # update rate in Hz
@@ -184,6 +184,7 @@ cam.SetName("Camera Sensor")
 cam.SetLag(lag)
 cam.SetCollectionWindow(exposure_time)
 cam.PushFilter(sens.ChFilterVisualize(image_width, image_height, "Before Grayscale Filter"))
+cam.PushFilter(sens.ChFilterSave(project_root+'/truckHighway/data/frame/'))
 # add sensor to manager
 manager.AddSensor(cam)
 
@@ -413,7 +414,7 @@ while vis.Run() :
             # for sedan controller now it's a simple PID controller
             error = error_state(veh_state=[veh_x,veh_y,veh_heading],ref_traj=reference_trajectory,lookahead=3.0)
             steering = sum([x * y for x, y in zip(error, [0.02176878 , 0.72672704 , 0.78409284 ,-0.0105355 ])]) # @hang here is the place to add controller
-            ref_vel = 30
+            ref_vel = 20
             vel_error = ref_vel - current_vel
             throttle = 0.5 * vel_error + 0.5
             steering = np.clip(steering,-1.0,1.0)

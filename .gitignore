@@ -2,3 +2,5 @@
 *.png
 *pycache*
 !truckHighway/data/textures/*.jpg
+!truckHighway/data/*.csv
+!offroadTerrain/data/*.csv

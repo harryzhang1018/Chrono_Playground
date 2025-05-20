@@ -31,7 +31,7 @@ def main():
     # vehicle.SetDriveType(veh.DrivelineTypeWV_FWD)
     vehicle.SetEngineType(veh.EngineModelType_SIMPLE_MAP)
     vehicle.SetTransmissionType(veh.TransmissionModelType_AUTOMATIC_SIMPLE_MAP)
-    vehicle.SetDriveType(veh.DrivelineTypeWV_FWD)
+    vehicle.SetDriveType(veh.DrivelineTypeWV_AWD)
     vehicle.SetTireType(veh.TireModelType_RIGID_MESH)
     vehicle.Initialize()
 

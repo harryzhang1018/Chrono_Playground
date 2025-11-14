@@ -32,12 +32,12 @@ import math
 # easier to manage data structures in this example).
 
 class MySimpleTank:
-    def __init__(self, sys, start_pos=chrono.ChVector3d(-6, -12, 0)):
+    def __init__(self, sys, start_pos=chrono.ChVector3d(0, 0.5, 0)):
         # THE DATA
         
         self.throttleL = 0.0  # actual value 0...1 of gas throttle (left).
         self.throttleR = 0.0  # actual value 0...1 of gas throttle (right).
-        self.max_motor_speed = 5  # the max rotation speed of the motor [rads/s]
+        self.max_motor_speed = 10.0  # the max rotation speed of the motor [rads/s]
         
         # The parts making the tank
         # .. truss:
@@ -233,7 +233,7 @@ class MySimpleTank:
         
         # Shared visualization model
         shoe_trimesh = chrono.ChTriangleMeshConnected()
-        shoe_trimesh.LoadWavefrontMesh(chrono.GetChronoDataFile("models/bulldozer/shoe_view_test1.obj"))
+        shoe_trimesh.LoadWavefrontMesh(chrono.GetChronoDataFile("models/bulldozer/shoe_view.obj"))
         
         shoe_vis_mesh = chrono.ChVisualShapeTriangleMesh()
         shoe_vis_mesh.SetMesh(shoe_trimesh)
@@ -241,7 +241,7 @@ class MySimpleTank:
         
         # Shared collision mesh
         shoe_coll_trimesh = chrono.ChTriangleMeshConnected()
-        shoe_coll_trimesh.LoadWavefrontMesh(chrono.GetChronoDataFile("models/bulldozer/shoe_collision_test1.obj"))
+        shoe_coll_trimesh.LoadWavefrontMesh(chrono.GetChronoDataFile("models/bulldozer/shoe_collision.obj"))
         
         shoe_coll_vis_mesh = chrono.ChVisualShapeTriangleMesh()
         shoe_coll_vis_mesh.SetMesh(shoe_coll_trimesh)
@@ -393,16 +393,16 @@ def main():
     # Create some obstacles on the ground
     obst_mat = chrono.ChContactMaterialNSC()
     
-    for i in range(30):
+    for i in range(50):
         obstacle = chrono.ChBodyEasyBox(
-            0.4 * chrono.ChRandom.Get(), 
-            0.4 * chrono.ChRandom.Get(), 
-            0.4 * chrono.ChRandom.Get(),
+            0.6 * chrono.ChRandom.Get(), 
+            0.6 * chrono.ChRandom.Get(), 
+            0.6 * chrono.ChRandom.Get(),
             1000, True, True, obst_mat)
         obstacle.SetPos(chrono.ChVector3d(
-            5 * (chrono.ChRandom.Get() - 0.5),
-        0.5 * chrono.ChRandom.Get(),
-            5 * (chrono.ChRandom.Get() - 0.5)))
+            20 * (chrono.ChRandom.Get() - 0.5),
+            2 * chrono.ChRandom.Get(),
+            20 * (chrono.ChRandom.Get() - 0.5)))
         sys.Add(obstacle)
     
     # Create the tank

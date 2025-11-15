@@ -26,6 +26,10 @@ import pychrono.core as chrono
 import pychrono.irrlicht as chronoirr
 import math
 
+import sys,os
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(project_root)
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../')))
 
 # First of all, define a class for the 'tank' (that is, a set of
 # bodies and links which are grouped within this class; so it is
@@ -55,6 +59,7 @@ class MySimpleTank:
         self.wheelLB = None
         self.link_motorLB = None
         
+        self.data_path = project_root + "/trackveh_digitalTwin/data/bulldozer/"
         # Build and initialize the tank
         self._build_tank(sys, start_pos)
     
@@ -80,7 +85,7 @@ class MySimpleTank:
         # --- The tank body ---
         
         self.truss = chrono.ChBodyEasyMesh(
-            chrono.GetChronoDataFile("models/bulldozer/bulldozerB10.obj"),
+            self.data_path + "bulldozerB10.obj",
             1000,    # density
             False,   # compute mass automatically?
             True,    # visualization?
@@ -233,7 +238,7 @@ class MySimpleTank:
         
         # Shared visualization model
         shoe_trimesh = chrono.ChTriangleMeshConnected()
-        shoe_trimesh.LoadWavefrontMesh(chrono.GetChronoDataFile("models/bulldozer/shoe_view_test1.obj"))
+        shoe_trimesh.LoadWavefrontMesh(self.data_path + "shoe_view_test1.obj")
         
         shoe_vis_mesh = chrono.ChVisualShapeTriangleMesh()
         shoe_vis_mesh.SetMesh(shoe_trimesh)
@@ -241,7 +246,7 @@ class MySimpleTank:
         
         # Shared collision mesh
         shoe_coll_trimesh = chrono.ChTriangleMeshConnected()
-        shoe_coll_trimesh.LoadWavefrontMesh(chrono.GetChronoDataFile("models/bulldozer/shoe_collision_test1.obj"))
+        shoe_coll_trimesh.LoadWavefrontMesh(self.data_path + "shoe_collision_test1.obj")
         
         shoe_coll_vis_mesh = chrono.ChVisualShapeTriangleMesh()
         shoe_coll_vis_mesh.SetMesh(shoe_coll_trimesh)

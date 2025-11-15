@@ -233,7 +233,7 @@ class MySimpleTank:
         
         # Shared visualization model
         shoe_trimesh = chrono.ChTriangleMeshConnected()
-        shoe_trimesh.LoadWavefrontMesh(chrono.GetChronoDataFile("models/bulldozer/shoe_view.obj"))
+        shoe_trimesh.LoadWavefrontMesh(chrono.GetChronoDataFile("models/bulldozer/shoe_view_test1.obj"))
         
         shoe_vis_mesh = chrono.ChVisualShapeTriangleMesh()
         shoe_vis_mesh.SetMesh(shoe_trimesh)
@@ -241,7 +241,7 @@ class MySimpleTank:
         
         # Shared collision mesh
         shoe_coll_trimesh = chrono.ChTriangleMeshConnected()
-        shoe_coll_trimesh.LoadWavefrontMesh(chrono.GetChronoDataFile("models/bulldozer/shoe_collision.obj"))
+        shoe_coll_trimesh.LoadWavefrontMesh(chrono.GetChronoDataFile("models/bulldozer/shoe_collision_test1.obj"))
         
         shoe_coll_vis_mesh = chrono.ChVisualShapeTriangleMesh()
         shoe_coll_vis_mesh.SetMesh(shoe_coll_trimesh)

@@ -4,3 +4,4 @@
 !truckHighway/data/textures/*.jpg
 !truckHighway/data/*.csv
 !offroadTerrain/data/*.csv
+trackedVehAkash.py

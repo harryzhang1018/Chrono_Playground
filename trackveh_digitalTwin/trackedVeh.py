@@ -438,8 +438,8 @@ def main():
         
         # Example: vary throttle over time to make the tank move in a pattern
         # Modify these values to control the tank's motion
-        mytank.throttleL = 0.5 + 0.2 * math.sin(time * 0.5)
-        mytank.throttleR = 0.5 + 0.2 * math.cos(time * 0.5)
+        mytank.throttleL = 0
+        mytank.throttleR = 0
         
         # Update motor speeds based on throttle
         speed_L = mytank.throttleL * mytank.max_motor_speed

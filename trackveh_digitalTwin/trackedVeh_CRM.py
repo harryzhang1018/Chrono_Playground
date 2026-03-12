@@ -1,7 +1,7 @@
 import pychrono.core as chrono
 import pychrono.vehicle as veh
 import pychrono.fsi as fsi
-import pychrono.vsg as vsg
+import pychrono.vsg3d as vsg
 import math
 
 veh.ChWorldFrame.SetYUP()
@@ -354,7 +354,7 @@ def main():
     poisson_ratio = 0.3
 
     terrain = veh.CRMTerrain(sys, spacing)
-    sysFSI = terrain.GetSystemFSI()
+    sysFSI = terrain.GetFsiSystemSPH()
     terrain.SetVerbose(True)
     terrain.SetGravitationalAcceleration(chrono.ChVector3d(0, -9.81, 0))
     terrain.SetStepSizeCFD(step_size)
@@ -410,7 +410,7 @@ def main():
     vis = None
     if render:
         # col_callback = fsi.ParticleHeightColorCallback(aabb.min.y, aabb.max.y)
-        visFSI = fsi.ChFsiVisualizationVSG(sysFSI)
+        visFSI = fsi.ChSphVisualizationVSG(sysFSI)
         visFSI.EnableFluidMarkers(True)
         visFSI.EnableBoundaryMarkers(False)
         visFSI.EnableRigidBodyMarkers(False)

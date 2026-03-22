@@ -1,7 +1,7 @@
 import pychrono.core as chrono
 import pychrono.vehicle as veh
 import pychrono.fsi as fsi
-import pychrono.vsg as vsg
+import pychrono.vsg3d as vsg
 import math
 
 veh.ChWorldFrame.SetYUP()
@@ -354,7 +354,7 @@ def main():
     poisson_ratio = 0.3
 
     terrain = veh.CRMTerrain(sys, spacing)
-    sysFSI = terrain.GetSystemFSI()
+    sysFSI = terrain.GetFsiSystemSPH()
     terrain.SetVerbose(True)
     terrain.SetGravitationalAcceleration(chrono.ChVector3d(0, -9.81, 0))
     terrain.SetStepSizeCFD(step_size)
@@ -374,13 +374,13 @@ def main():
     sph_params.integration_scheme = fsi.IntegrationScheme_RK2
     sph_params.initial_spacing = spacing
     sph_params.d0_multiplier = 1.2
-    sph_params.kernel_threshold = 0.8
+    sph_params.free_surface_threshold = 0.8
     sph_params.artificial_viscosity = 0.5
     sph_params.shifting_method = fsi.ShiftingMethod_PPST
     sph_params.shifting_ppst_push = 3.0
     sph_params.shifting_ppst_pull = 1.0
-    sph_params.consistent_gradient_discretization = False
-    sph_params.consistent_laplacian_discretization = False
+    sph_params.use_consistent_gradient_discretization = False
+    sph_params.use_consistent_laplacian_discretization = False
     sph_params.viscosity_method = fsi.ViscosityMethod_ARTIFICIAL_BILATERAL
     sph_params.boundary_method = fsi.BoundaryMethod_ADAMI
     terrain.SetSPHParameters(sph_params)
@@ -410,7 +410,7 @@ def main():
     vis = None
     if render:
         # col_callback = fsi.ParticleHeightColorCallback(aabb.min.y, aabb.max.y)
-        visFSI = fsi.ChFsiVisualizationVSG(sysFSI)
+        visFSI = fsi.ChSphVisualizationVSG(sysFSI)
         visFSI.EnableFluidMarkers(True)
         visFSI.EnableBoundaryMarkers(False)
         visFSI.EnableRigidBodyMarkers(False)
